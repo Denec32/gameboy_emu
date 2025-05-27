@@ -1,19 +1,27 @@
 struct Registers {
+    /// Accumulator and Flags
     AF: u16,
     BC: u16,
     DE: u16,
     HL: u16,
+    
+    /// Stack pointer
     SP: u16,
+    
+    /// Program counter and pointer
     PC: u16,
 }
 
 impl Registers {
-    fn default() -> Registers {
+    const ZERO_FLAG_BITS: u16 = 0b1000_0000;
+    const SUBTRACTION_FLAG_BITS: u16 = 0b0100_0000;
+    const HALF_CARRY_FLAG_BITS: u16 = 0b0010_0000;
+    const CARRY_FLAG_BITS: u16 = 0b0001_0000;
+    
+    const LOWER_BITS: u16 = 0b00000000_11111111;
+    
+    fn new() -> Registers {
         Registers{ AF: 0, BC: 0, DE: 0, HL: 0, SP: 0, PC: 0 }
-    }
-
-    fn new(af: u16, bc: u16, de: u16, hl: u16, sp: u16, pc: u16) -> Registers {
-        Registers{ AF: af, BC: bc, DE: de, HL: hl, SP: sp, PC: pc }
     }
 
     fn write_af(&mut self, val: u16) { self.AF = val }
@@ -35,9 +43,14 @@ impl Registers {
     fn read_d(&self) -> u8 { (self.DE >> 8) as u8 }
     fn read_h(&self) -> u8 { (self.HL >> 8) as u8 }
 
-    fn read_c(&self) -> u8 { ((self.BC << 8) >> 8) as u8 }
-    fn read_e(&self) -> u8 { ((self.DE << 8) >> 8) as u8 }
-    fn read_l(&self) -> u8 { ((self.HL << 8) >> 8) as u8 }
+    fn read_c(&self) -> u8 { (self.BC & Self::LOWER_BITS) as u8 }
+    fn read_e(&self) -> u8 { (self.DE & Self::LOWER_BITS) as u8 }
+    fn read_l(&self) -> u8 { (self.HL & Self::LOWER_BITS) as u8 }
+
+    fn read_zero_flag(&self) -> bool { (self.AF & Self::ZERO_FLAG_BITS ) != 0 }
+    fn read_subtraction_flag(&self) -> bool { (self.AF & Self::SUBTRACTION_FLAG_BITS) != 0 }
+    fn read_half_carry_flag(&self) -> bool { (self.AF & Self::HALF_CARRY_FLAG_BITS) != 0 }
+    fn read_carry_flag(&self) -> bool { (self.AF & Self::CARRY_FLAG_BITS) != 0 }
 }
 
 #[cfg(test)]
@@ -46,13 +59,13 @@ mod tests {
 
     #[test]
     fn read_hi() {
-        let register = Registers::new(0b11001100_00000000, 0, 0, 0, 0, 0);
+        let register = Registers { AF: 0b11001100_00000000, BC: 0, DE: 0, HL: 0, SP: 0, PC: 0 };
         assert_eq!(register.read_a(), 0b11001100);
     }
     
     #[test]
     fn read_lo() {
-        let register = Registers::new(0, 0b00000000_11001100, 0, 0, 0, 0);
+        let register = Registers { AF: 0, BC: 0b00000000_11001100, DE: 0, HL: 0, SP: 0, PC: 0 };
         assert_eq!(register.read_c(), 0b11001100);
     }
 }
