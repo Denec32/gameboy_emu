@@ -1,71 +1,153 @@
 struct Registers {
-    /// Accumulator and Flags
-    AF: u16,
-    BC: u16,
-    DE: u16,
-    HL: u16,
+    a: u8,
+    f: u8,
     
-    /// Stack pointer
-    SP: u16,
+    b: u8,
+    c: u8,
     
-    /// Program counter and pointer
-    PC: u16,
+    d: u8,
+    e: u8,
+    
+    h: u8,
+    l: u8,
+    
+    sp: u16,
+    
+    pc: u16,
 }
 
 impl Registers {
-    const ZERO_FLAG_BITS: u16 = 0b1000_0000;
-    const SUBTRACTION_FLAG_BITS: u16 = 0b0100_0000;
-    const HALF_CARRY_FLAG_BITS: u16 = 0b0010_0000;
-    const CARRY_FLAG_BITS: u16 = 0b0001_0000;
+    const ZERO_FLAG_BITS: u8 = 0b1000_0000;
+    const SUBTRACTION_FLAG_BITS: u8 = 0b0100_0000;
+    const HALF_CARRY_FLAG_BITS: u8 = 0b0010_0000;
+    const CARRY_FLAG_BITS: u8 = 0b0001_0000;
     
     const LOWER_BITS: u16 = 0b00000000_11111111;
     
     fn new() -> Registers {
-        Registers{ AF: 0, BC: 0, DE: 0, HL: 0, SP: 0, PC: 0 }
+        Registers{ a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0, }
     }
 
-    fn write_af(&mut self, val: u16) { self.AF = val }
-    fn write_bc(&mut self, val: u16) {self.BC = val }
-    fn write_de(&mut self, val: u16) {self.DE = val }
-    fn write_hl(&mut self, val: u16) {self.HL = val }
-    fn write_sp(&mut self, val: u16) {self.SP = val }
-    fn write_pc(&mut self, val: u16) {self.PC = val }
+    fn write_a(&mut self, val: u8) { self.a = val; }
+    
+    fn read_a(&self) -> u8 { self.a }
+    fn read_b(&self) -> u8 { self.b }
+    fn read_c(&self) -> u8 { self.c }
 
-    fn read_af(&self) -> u16 { self.AF }
-    fn read_bc(&self) -> u16 {self.BC}
-    fn read_de(&self) -> u16 {self.DE}
-    fn read_hl(&self) -> u16 {self.HL}
-    fn read_sp(&self) -> u16 {self.SP}
-    fn read_pc(&self) -> u16 {self.PC}
+    fn read_d(&self) -> u8 { self.d }
+    fn read_e(&self) -> u8 { self.e }
 
-    fn read_a(&self) -> u8 { (self.AF >> 8) as u8 }
-    fn read_b(&self) -> u8 { (self.BC >> 8) as u8 }
-    fn read_d(&self) -> u8 { (self.DE >> 8) as u8 }
-    fn read_h(&self) -> u8 { (self.HL >> 8) as u8 }
+    fn read_h(&self) -> u8 { self.h }
+    fn read_l(&self) -> u8 { self.l }
+    fn read_hl(&self) -> u16 { ((self.h as u16) << 8) | self.l as u16 }
+    
 
-    fn read_c(&self) -> u8 { (self.BC & Self::LOWER_BITS) as u8 }
-    fn read_e(&self) -> u8 { (self.DE & Self::LOWER_BITS) as u8 }
-    fn read_l(&self) -> u8 { (self.HL & Self::LOWER_BITS) as u8 }
+    fn read_zero_flag(&self) -> bool { (self.f & Self::ZERO_FLAG_BITS ) != 0 }
+    fn read_subtraction_flag(&self) -> bool { (self.f & Self::SUBTRACTION_FLAG_BITS) != 0 }
+    fn read_half_carry_flag(&self) -> bool { (self.f & Self::HALF_CARRY_FLAG_BITS) != 0 }
+    fn read_carry_flag(&self) -> bool { (self.f & Self::CARRY_FLAG_BITS) != 0 }
+    
+    fn set_zero_flag(&mut self, value: bool) { if value { self.f |= Self::ZERO_FLAG_BITS } else { self.f &= !Self::ZERO_FLAG_BITS }; }
+    fn set_subtraction_flag(&mut self, value: bool) { if value { self.f |= Self::SUBTRACTION_FLAG_BITS } else { self.f &= !Self::SUBTRACTION_FLAG_BITS }; }
+    fn set_half_carry_flag(&mut self, value: bool) { if value { self.f |= Self::HALF_CARRY_FLAG_BITS } else { self.f &= !Self::HALF_CARRY_FLAG_BITS }; }
+    fn set_carry_flag(&mut self, value: bool) { if value { self.f |= Self::CARRY_FLAG_BITS } else { self.f &= !Self::CARRY_FLAG_BITS }; }
 
-    fn read_zero_flag(&self) -> bool { (self.AF & Self::ZERO_FLAG_BITS ) != 0 }
-    fn read_subtraction_flag(&self) -> bool { (self.AF & Self::SUBTRACTION_FLAG_BITS) != 0 }
-    fn read_half_carry_flag(&self) -> bool { (self.AF & Self::HALF_CARRY_FLAG_BITS) != 0 }
-    fn read_carry_flag(&self) -> bool { (self.AF & Self::CARRY_FLAG_BITS) != 0 }
+    fn read_hl_pointer(&self) -> u8 {
+        todo!()
+    }
+}
+
+struct Memory {
+    memory: [u8; 0b_1111_1111_1111_1111],
+}
+impl Memory {
+    fn new() -> Memory {
+        Memory{memory: [0; 0b_1111_1111_1111_1111]}
+    }
+    
+    fn read(&self, addr: u16) -> u8 {
+        self.memory[addr as usize]
+    }    
+    
+    fn write(&mut self, addr: u16, value: u8) {
+        self.memory[addr as usize] = value;
+    }
+}
+
+struct CPU {
+    reg: Registers,
+    memory: Memory,
+}
+
+impl CPU {
+    fn new() -> CPU {
+        CPU{reg: Registers::new(), memory: Memory::new()}
+    }
+    
+    fn nop(&mut self) {}
+
+    fn decode_r8_register(&self, r8: u8) -> u8 {
+        match r8 {
+            0 => self.reg.read_b(),
+            1 => self.reg.read_c(),
+            2 => self.reg.read_d(),
+            3 => self.reg.read_e(),
+            4 => self.reg.read_h(),
+            5 => self.reg.read_l(),
+            6 => self.memory.read(self.reg.read_hl()),
+            7 => self.reg.read_a(),
+            _ => panic!("Invalid register code: {r8}")
+        }
+    }
+    
+    /// add value in r8 plus the carry flag to register A
+    fn adc_a_r8(&mut self, r8: u8) {
+        let a = self.reg.read_a();
+        let register_value = self.decode_r8_register(r8);
+        let sum_result = a as u16 + register_value as u16 + if self.reg.read_carry_flag() { 1 } else { 0 };
+        
+        self.reg.set_zero_flag(sum_result == 0);
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(sum_result > 0xF);
+        self.reg.set_carry_flag(sum_result > 0xFF);
+        
+        self.reg.write_a(sum_result as u8);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Registers;
+    use crate::{Registers, CPU};
 
     #[test]
     fn read_hi() {
-        let register = Registers { AF: 0b11001100_00000000, BC: 0, DE: 0, HL: 0, SP: 0, PC: 0 };
+        let register = Registers { a: 0b11001100, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0 };
         assert_eq!(register.read_a(), 0b11001100);
     }
     
     #[test]
     fn read_lo() {
-        let register = Registers { AF: 0, BC: 0b00000000_11001100, DE: 0, HL: 0, SP: 0, PC: 0 };
+        let register = Registers { a: 0, f: 0, b: 0, c: 0b11001100, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0 };
         assert_eq!(register.read_c(), 0b11001100);
+    }
+    
+    #[test]
+    fn read_hl() {
+        let register = Registers{ a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0b10101010, l: 0b01010101, sp: 0, pc: 0, };
+        assert_eq!(register.read_hl(), 0b10101010_01010101);
+    }
+    
+    #[test]
+    fn add_from_ram_to_a() {
+        let mut cpu = CPU::new();
+        
+        cpu.memory.write(0x00, 17);
+        cpu.adc_a_r8(6);
+        assert_eq!(cpu.reg.read_a(), 17);
+        
+        cpu.memory.write(0x00, 12);
+        cpu.adc_a_r8(6);
+
+        assert_eq!(cpu.reg.read_a(), 29);
     }
 }
