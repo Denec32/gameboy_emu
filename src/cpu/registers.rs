@@ -34,6 +34,13 @@ impl Registers {
 
     pub(crate) fn write_a(&mut self, val: u8) { self.a = val; }
 
+    pub(crate) fn write_hl(&mut self, val: u16) { 
+        self.h = (val >> 8) as u8;
+        self.l = val as u8;
+    }
+
+    pub(crate) fn write_sp(&mut self, value: u16) { self.sp = value; }
+    
     pub(crate) fn read_a(&self) -> u8 { self.a }
     pub(crate) fn read_b(&self) -> u8 { self.b }
     pub(crate) fn read_c(&self) -> u8 { self.c }

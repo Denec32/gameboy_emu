@@ -15,7 +15,7 @@ impl CPU {
 
     fn nop(&mut self) {}
 
-    fn decode_r8_register(&self, r8: u8) -> u8 {
+    fn decode_r8(&self, r8: u8) -> u8 {
         match r8 {
             0 => self.reg.read_b(),
             1 => self.reg.read_c(),
@@ -41,7 +41,7 @@ impl CPU {
 
     /// add value in r8 plus the carry flag to register A
     fn adc_a_r8(&mut self, r8: u8) {
-        let register_value = self.decode_r8_register(r8);
+        let register_value = self.decode_r8(r8);
         self.adc_a(register_value);
     }
 
@@ -56,6 +56,52 @@ impl CPU {
         self.reg.set_carry_flag(sum_result > 0xFF);
 
         self.reg.write_a(sum_result as u8);
+    }
+    
+    fn add_a_r8(&mut self, r8: u8) {
+        let register_value = self.decode_r8(r8);
+        self.add_a(register_value); 
+    }
+
+    fn add_a(&mut self, value: u8) {
+        let a = self.reg.read_a();
+        let sum_result = a as u16 + value as u16;
+
+        self.reg.set_zero_flag(sum_result == 0);
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(sum_result > 0xF);
+        self.reg.set_carry_flag(sum_result > 0xFF);
+
+        self.reg.write_a(sum_result as u8);
+    }
+    
+    fn add_hl_r16(&mut self, r16: u8) {
+        let register_value = self.decode_r16(r16);
+        self.add_hl(register_value);
+    }
+    
+    fn add_hl(&mut self, value: u16) {
+        let hl = self.reg.read_hl();
+
+        let sum_result = hl as u32 + value as u32;
+
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(sum_result > 0xFFF);
+        self.reg.set_carry_flag(sum_result > 0xFFFF);
+        
+        self.reg.write_hl(sum_result as u16);
+    }
+    
+    fn add_sp(&mut self, e8: i8) {
+        let sp = self.reg.read_sp();
+        let sum_result = sp.wrapping_add(e8 as u16);
+
+        self.reg.set_zero_flag(false);
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(sum_result > 0xF);
+        self.reg.set_carry_flag(sum_result > 0xFF);
+        
+        self.reg.write_sp(sum_result);
     }
 }
 
