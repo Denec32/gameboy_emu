@@ -27,6 +27,10 @@ impl Registers {
     fn new() -> Registers {
         Registers{ a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0, }
     }
+    
+    fn merge_to_16_bit(first: u8, second: u8) -> u16 {
+        ((first as u16) << 8) | second as u16
+    }
 
     fn write_a(&mut self, val: u8) { self.a = val; }
     
@@ -39,8 +43,10 @@ impl Registers {
 
     fn read_h(&self) -> u8 { self.h }
     fn read_l(&self) -> u8 { self.l }
-    fn read_hl(&self) -> u16 { ((self.h as u16) << 8) | self.l as u16 }
-    
+    fn read_hl(&self) -> u16 { Self::merge_to_16_bit(self.h, self.l) }
+    fn read_bc(&self) -> u16 { Self::merge_to_16_bit(self.b, self.c) }
+    fn read_de(&self) -> u16 { Self::merge_to_16_bit(self.d, self.e) }
+    fn read_sp(&self) -> u16 { self.sp }
 
     fn read_zero_flag(&self) -> bool { (self.f & Self::ZERO_FLAG_BITS ) != 0 }
     fn read_subtraction_flag(&self) -> bool { (self.f & Self::SUBTRACTION_FLAG_BITS) != 0 }
@@ -51,10 +57,6 @@ impl Registers {
     fn set_subtraction_flag(&mut self, value: bool) { if value { self.f |= Self::SUBTRACTION_FLAG_BITS } else { self.f &= !Self::SUBTRACTION_FLAG_BITS }; }
     fn set_half_carry_flag(&mut self, value: bool) { if value { self.f |= Self::HALF_CARRY_FLAG_BITS } else { self.f &= !Self::HALF_CARRY_FLAG_BITS }; }
     fn set_carry_flag(&mut self, value: bool) { if value { self.f |= Self::CARRY_FLAG_BITS } else { self.f &= !Self::CARRY_FLAG_BITS }; }
-
-    fn read_hl_pointer(&self) -> u8 {
-        todo!()
-    }
 }
 
 struct Memory {
@@ -100,18 +102,33 @@ impl CPU {
         }
     }
     
+    fn decode_r16(&self, r16: u8) -> u16 {
+        match r16 {
+            0 => self.reg.read_bc(),
+            1 => self.reg.read_de(),
+            2 => self.reg.read_hl(),
+            3 => self.reg.read_sp(),
+            _ => panic!("Invalid register code: {r16}")
+        }
+    }
+    
     /// add value in r8 plus the carry flag to register A
     fn adc_a_r8(&mut self, r8: u8) {
-        let a = self.reg.read_a();
         let register_value = self.decode_r8_register(r8);
-        let sum_result = a as u16 + register_value as u16 + if self.reg.read_carry_flag() { 1 } else { 0 };
-        
+        self.adc_a(register_value);
+    }
+    
+    /// add byte plus carry flag to register A
+    fn adc_a(&mut self, value: u8) {
+        let a = self.reg.read_a();
+        let sum_result = a as u16 + value as u16 + if self.reg.read_carry_flag() { 1 } else { 0 };
+
         self.reg.set_zero_flag(sum_result == 0);
         self.reg.set_subtraction_flag(false);
         self.reg.set_half_carry_flag(sum_result > 0xF);
         self.reg.set_carry_flag(sum_result > 0xFF);
-        
-        self.reg.write_a(sum_result as u8);
+
+        self.reg.write_a(sum_result as u8); 
     }
 }
 
