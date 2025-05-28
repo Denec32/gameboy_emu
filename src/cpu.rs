@@ -94,12 +94,12 @@ impl CPU {
     
     fn add_sp(&mut self, e8: i8) {
         let sp = self.reg.read_sp();
-        let sum_result = sp.wrapping_add(e8 as u16);
+        let (sum_result, has_overflow) = sp.overflowing_add(e8 as u16);
 
         self.reg.set_zero_flag(false);
         self.reg.set_subtraction_flag(false);
-        self.reg.set_half_carry_flag(sum_result > 0xF);
-        self.reg.set_carry_flag(sum_result > 0xFF);
+        self.reg.set_half_carry_flag(sum_result > 0xF || has_overflow);
+        self.reg.set_carry_flag(sum_result > 0xFF || has_overflow);
         
         self.reg.write_sp(sum_result);
     }
@@ -108,7 +108,34 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    #[test]
+    fn add_negative_to_sp() {
+        let mut cpu = CPU::new();
+        
+        cpu.add_sp(-5);
+        assert_eq!(-5, cpu.reg.read_sp() as i16);
+    }
+    
+    #[test]
+    fn add_to_sp_overflow() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_sp(u16::MAX);
+        cpu.add_sp(1);
+        assert_eq!(0, cpu.reg.read_sp());
+        assert_eq!(true, cpu.reg.read_carry_flag(), "carry flag is set");
+        assert_eq!(true, cpu.reg.read_half_carry_flag(), "half carry flag is set");
+    }
+    
+    #[test]
+    fn add_to_sp_set_carry_flag() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_sp(0xFF);
+        cpu.add_sp(1);
+        assert_eq!(0xFF + 1, cpu.reg.read_sp());
+        assert_eq!(true, cpu.reg.read_carry_flag(), "carry flag is set");
+        assert_eq!(true, cpu.reg.read_half_carry_flag(), "half carry flag is set");
+    }
+    
     #[test]
     fn add_from_ram_to_a() {
         let mut cpu = CPU::new();

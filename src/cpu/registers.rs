@@ -55,9 +55,9 @@ impl Registers {
     pub(crate) fn read_de(&self) -> u16 { Self::merge_to_16_bit(self.d, self.e) }
     pub(crate) fn read_sp(&self) -> u16 { self.sp }
 
-    fn read_zero_flag(&self) -> bool { (self.f & Self::ZERO_FLAG_BITS ) != 0 }
-    fn read_subtraction_flag(&self) -> bool { (self.f & Self::SUBTRACTION_FLAG_BITS) != 0 }
-    fn read_half_carry_flag(&self) -> bool { (self.f & Self::HALF_CARRY_FLAG_BITS) != 0 }
+    pub(crate) fn read_zero_flag(&self) -> bool { (self.f & Self::ZERO_FLAG_BITS ) != 0 }
+    pub(crate) fn read_subtraction_flag(&self) -> bool { (self.f & Self::SUBTRACTION_FLAG_BITS) != 0 }
+    pub(crate) fn read_half_carry_flag(&self) -> bool { (self.f & Self::HALF_CARRY_FLAG_BITS) != 0 }
     pub(crate) fn read_carry_flag(&self) -> bool { (self.f & Self::CARRY_FLAG_BITS) != 0 }
 
     pub(crate) fn set_zero_flag(&mut self, value: bool) { if value { self.f |= Self::ZERO_FLAG_BITS } else { self.f &= !Self::ZERO_FLAG_BITS }; }
