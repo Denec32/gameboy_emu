@@ -165,6 +165,13 @@ impl CPU {
         self.reg.set_half_carry_flag((value & 0xF) > (self.reg.read_a()& 0xF));
         self.reg.set_carry_flag(value > self.reg.read_a());
     }
+    
+    fn cpl(&mut self) {
+        self.reg.write_a(!self.reg.read_a());
+        
+        self.reg.set_subtraction_flag(true);
+        self.reg.set_half_carry_flag(true);
+    }
 }
 
 #[cfg(test)]
@@ -255,5 +262,14 @@ mod tests {
         cpu.cp_a(0b_0000_0000);
         assert!(!cpu.reg.read_carry_flag(), "carry flag is not set");
         assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
+    }
+    
+    #[test]
+    fn complement_a() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_a(0b_1011_1010);
+        cpu.cpl();
+        
+        assert_eq!(0b_0100_0101, cpu.reg.read_a(), "carry flag is set");
     }
 }
