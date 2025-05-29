@@ -154,7 +154,17 @@ impl CPU {
         self.reg.set_carry_flag(!self.reg.read_carry_flag());
     }
     
+    fn cp_a_r8(&mut self, r8: u8) {
+        let register_value = self.decode_r8(r8);
+        self.cp_a(register_value);
+    }
     
+    fn cp_a(&mut self, value: u8) {
+        self.reg.set_zero_flag(self.reg.read_a() == value);
+        self.reg.set_subtraction_flag(true);
+        self.reg.set_half_carry_flag((value & 0xF) > (self.reg.read_a()& 0xF));
+        self.reg.set_carry_flag(value > self.reg.read_a());
+    }
 }
 
 #[cfg(test)]
@@ -223,5 +233,27 @@ mod tests {
 
         cpu.bit_u3_r8(1, 7);
         assert!(cpu.reg.read_zero_flag(), "zero flag is set");
+    }
+    
+    #[test]
+    fn compare_a() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_a(0b_0010_1101);
+        
+        cpu.cp_a(0b_0011_1111);
+        assert!(cpu.reg.read_carry_flag(), "carry flag is set");
+        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
+
+        cpu.cp_a(0b_0000_1111);
+        assert!(!cpu.reg.read_carry_flag(), "carry flag is not set");
+        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
+        
+        cpu.cp_a(0b_0100_0011);
+        assert!(cpu.reg.read_carry_flag(), "carry flag is set");
+        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
+        
+        cpu.cp_a(0b_0000_0000);
+        assert!(!cpu.reg.read_carry_flag(), "carry flag is not set");
+        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
     }
 }
