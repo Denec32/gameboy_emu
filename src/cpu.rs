@@ -120,7 +120,13 @@ impl CPU {
         self.reg.write_a(and_result);
     }
 
+    fn bit_u3_r8(&mut self, u3: i8, r8: u8) {
+        let register_value = self.decode_r8(r8);
 
+        self.reg.set_zero_flag(register_value & (1 << u3) == 0);
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(true);
+    }
 }
 
 #[cfg(test)]
@@ -177,5 +183,17 @@ mod tests {
         cpu.and_a(v);
         
         assert_eq!(0b1011_1100, cpu.reg.read_a());
+    }
+    
+    #[test]
+    fn test_bit() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_a(0b_0000_0001);
+        
+        cpu.bit_u3_r8(0, 7);
+        assert!(!cpu.reg.read_zero_flag(), "zero flag is not set");
+        
+        cpu.bit_u3_r8(1, 7);
+        assert!(cpu.reg.read_zero_flag(), "zero flag is set");
     }
 }
