@@ -148,6 +148,13 @@ impl CPU {
         todo!()
     }
 
+    fn ccf(&mut self) {
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(false);
+        self.reg.set_carry_flag(!self.reg.read_carry_flag());
+    }
+    
+    
 }
 
 #[cfg(test)]
