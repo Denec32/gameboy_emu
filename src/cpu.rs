@@ -39,6 +39,16 @@ impl CPU {
         }
     }
 
+    fn resolve_condition(&self, cond: u8) -> bool {
+        match cond {
+            0 => self.reg.read_zero_flag() & self.reg.read_subtraction_flag(),
+            1 => self.reg.read_zero_flag(),
+            2 => self.reg.read_subtraction_flag() & self.reg.read_carry_flag(),
+            3 => self.reg.read_carry_flag(),
+            _ => panic!("Invalid condition {cond}"),
+        }
+    }
+
     /// add value in r8 plus the carry flag to register A
     fn adc_a_r8(&mut self, r8: u8) {
         let register_value = self.decode_r8(r8);
@@ -116,7 +126,7 @@ impl CPU {
         self.reg.set_subtraction_flag(false);
         self.reg.set_half_carry_flag(true);
         self.reg.set_carry_flag(false);
-        
+
         self.reg.write_a(and_result);
     }
 
@@ -127,6 +137,17 @@ impl CPU {
         self.reg.set_subtraction_flag(false);
         self.reg.set_half_carry_flag(true);
     }
+
+    fn call_cc_n16(&mut self, cc:u8, n16: u16) {
+        if (self.resolve_condition(cc)) {
+            self.call_n16(n16);
+        }
+    }
+
+    fn call_n16(&mut self, n16: u16) {
+        todo!()
+    }
+
 }
 
 #[cfg(test)]
@@ -181,18 +202,18 @@ mod tests {
         let v = 0b1011_1110;
         cpu.reg.write_a(a);
         cpu.and_a(v);
-        
+
         assert_eq!(0b1011_1100, cpu.reg.read_a());
     }
-    
+
     #[test]
     fn test_bit() {
         let mut cpu = CPU::new();
         cpu.reg.write_a(0b_0000_0001);
-        
+
         cpu.bit_u3_r8(0, 7);
         assert!(!cpu.reg.read_zero_flag(), "zero flag is not set");
-        
+
         cpu.bit_u3_r8(1, 7);
         assert!(cpu.reg.read_zero_flag(), "zero flag is set");
     }
