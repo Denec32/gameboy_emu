@@ -103,6 +103,24 @@ impl CPU {
         
         self.reg.write_sp(sum_result);
     }
+
+    fn and_a_r8(&mut self, r8: u8) {
+        let register_value = self.decode_r8(r8);
+        self.and_a(register_value);
+    }
+
+    fn and_a(&mut self, value: u8) {
+        let and_result = self.reg.read_a() & value;
+
+        self.reg.set_zero_flag(and_result == 0);
+        self.reg.set_subtraction_flag(false);
+        self.reg.set_half_carry_flag(true);
+        self.reg.set_carry_flag(false);
+        
+        self.reg.write_a(and_result);
+    }
+
+
 }
 
 #[cfg(test)]
@@ -148,5 +166,16 @@ mod tests {
         cpu.adc_a_r8(6);
 
         assert_eq!(cpu.reg.read_a(), 29);
+    }
+
+    #[test]
+    fn and_a() {
+        let mut cpu = CPU::new();
+        let a = 0b1011_1101;
+        let v = 0b1011_1110;
+        cpu.reg.write_a(a);
+        cpu.and_a(v);
+        
+        assert_eq!(0b1011_1100, cpu.reg.read_a());
     }
 }
