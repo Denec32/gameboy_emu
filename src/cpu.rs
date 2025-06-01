@@ -6,11 +6,15 @@ use crate::memory::Memory;
 pub struct CPU {
     reg: Registers,
     memory: Memory,
+    
+    ime: bool,
+    
+    set_ime_after_instruction: bool,
 }
 
 impl CPU {
     pub fn new() -> CPU {
-        CPU{reg: Registers::new(), memory: Memory::new()}
+        CPU{reg: Registers::new(), memory: Memory::new(), ime: false, set_ime_after_instruction: false}
     }
 
     fn nop(&mut self) {}
@@ -244,6 +248,16 @@ impl CPU {
         
         result
     }
+    
+    fn di(&mut self) {
+        self.ime = false;
+    }
+    
+    fn ei(&mut self) {
+        self.set_ime_after_instruction = true
+    }
+    
+    
 }
 
 #[cfg(test)]
