@@ -28,6 +28,20 @@ impl CPU {
             _ => panic!("Invalid register code: {r8}")
         }
     }
+    
+    fn encode_r8(&mut self, r8: u8, value: u8) {
+        match r8 {
+            0 => self.reg.write_b(value),
+            1 => self.reg.write_c(value),
+            2 => self.reg.write_d(value),
+            3 => self.reg.write_e(value),
+            4 => self.reg.write_h(value),
+            5 => self.reg.write_l(value),
+            6 => self.memory.write(self.reg.read_hl(), value),
+            7 => self.reg.write_a(value),
+            _ => panic!("Invalid register code: {r8}")
+        }
+    }
 
     fn decode_r16(&self, r16: u8) -> u16 {
         match r16 {
@@ -37,6 +51,16 @@ impl CPU {
             3 => self.reg.read_sp(),
             _ => panic!("Invalid register code: {r16}")
         }
+    }
+    
+    fn encode_r16(&mut self, r16: u8, value: u16) {
+        match r16 {
+            0 => self.reg.write_bc(value),
+            1 => self.reg.write_de(value),
+            2 => self.reg.write_hl(value),
+            3 => self.reg.write_sp(value),
+            _ => panic!("Invalid register code: {r16}")
+        };
     }
 
     fn resolve_condition(&self, cond: u8) -> bool {
@@ -162,7 +186,7 @@ impl CPU {
     fn cp_a(&mut self, value: u8) {
         self.reg.set_zero_flag(self.reg.read_a() == value);
         self.reg.set_subtraction_flag(true);
-        self.reg.set_half_carry_flag((value & 0xF) > (self.reg.read_a()& 0xF));
+        self.reg.set_half_carry_flag((value & 0xF) > (self.reg.read_a() & 0xF));
         self.reg.set_carry_flag(value > self.reg.read_a());
     }
     
@@ -197,6 +221,28 @@ impl CPU {
         self.reg.set_zero_flag(self.reg.read_a() == 0);
         self.reg.set_half_carry_flag(false);
         // TODO set carry flag depending on the operation
+    }
+    
+    fn dec_r8(&mut self, r8: u8) {
+        let register_value = self.decode_r8(r8);
+        let new_val = self.dec(register_value as u16) as u8;
+        self.encode_r8(r8, new_val);
+    }
+    
+    fn dec_r16(&mut self, r16: u8) {
+        let register_value = self.decode_r16(r16);
+        let new_val = self.dec(register_value);
+        self.encode_r16(r16, new_val);
+    }
+    
+    fn dec(&mut self, value: u16) -> u16 {
+        let result = value.wrapping_sub(1);
+        
+        self.reg.set_zero_flag(result == 0);
+        self.reg.set_subtraction_flag(true);
+        self.reg.set_half_carry_flag(value & 0xF == 0);
+        
+        result
     }
 }
 
