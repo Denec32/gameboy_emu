@@ -257,6 +257,10 @@ impl CPU {
         self.set_ime_after_instruction = true
     }
     
+    fn halt(&mut self) {
+        todo!()
+    }
+    
     
 }
 
