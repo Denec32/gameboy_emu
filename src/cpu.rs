@@ -172,6 +172,32 @@ impl CPU {
         self.reg.set_subtraction_flag(true);
         self.reg.set_half_carry_flag(true);
     }
+    
+    fn daa(&mut self) {
+        if (self.reg.read_subtraction_flag()) {
+            let mut adj = 0;
+            if (self.reg.read_half_carry_flag()) {
+                adj += 0x6;
+            }
+            if (self.reg.read_carry_flag()) {
+                adj += 0x60;
+            }
+            // TODO subtract adj from A
+        } else {
+            let mut adj = 0;
+            if (self.reg.read_half_carry_flag() || (self.reg.read_a() & 0xF) > 0x9) {
+                adj += 0x6;
+            }
+            if (self.reg.read_carry_flag() || self.reg.read_a() > 0x99) {
+                adj += 0x60;
+            }
+            // TODO add adj to A
+        }
+        
+        self.reg.set_zero_flag(self.reg.read_a() == 0);
+        self.reg.set_half_carry_flag(false);
+        // TODO set carry flag depending on the operation
+    }
 }
 
 #[cfg(test)]
