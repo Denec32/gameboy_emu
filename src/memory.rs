@@ -1,9 +1,9 @@
 pub(crate) struct Memory {
-    memory: [u8; 0b_1111_1111_1111_1111],
+    memory: [u8; 8 * 1024],
 }
 impl Memory {
     pub(crate) fn new() -> Memory {
-        Memory{memory: [0; 0b_1111_1111_1111_1111]}
+        Memory{memory: [0; 8 * 1024]}
     }
 
     pub(crate) fn read(&self, addr: u16) -> u8 {
