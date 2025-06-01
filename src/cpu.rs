@@ -358,4 +358,15 @@ mod tests {
         
         assert_eq!(0b_0100_0101, cpu.reg.read_a(), "carry flag is set");
     }
+    
+    #[test]
+    fn dec_a() {
+        let mut cpu = CPU::new();
+        cpu.reg.write_a(0b_1011_0000);
+        
+        cpu.dec_r8(7);
+        
+        assert_eq!(0b_1010_1111, cpu.reg.read_a());
+        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
+    }
 }
