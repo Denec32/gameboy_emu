@@ -284,6 +284,20 @@ impl CPU {
 
         self.encode_r16(r16, new_value);
     }
+
+    fn jp_n16(&mut self, n16: u16) {
+        self.reg.write_pc(n16);
+    }
+    
+    fn jp_cc_n16(&mut self, cc: u8, n16: u16) {
+        if self.resolve_condition(cc) {
+            self.reg.write_pc(n16);
+        }
+    }
+    
+    fn jp_hl(&mut self) {
+        self.reg.write_pc(self.reg.read_hl())
+    }
 }
 
 #[cfg(test)]
