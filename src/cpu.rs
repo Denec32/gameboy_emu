@@ -288,16 +288,41 @@ impl CPU {
     fn jp_n16(&mut self, n16: u16) {
         self.reg.write_pc(n16);
     }
-    
+
     fn jp_cc_n16(&mut self, cc: u8, n16: u16) {
         if self.resolve_condition(cc) {
             self.reg.write_pc(n16);
         }
     }
-    
+
     fn jp_hl(&mut self) {
         self.reg.write_pc(self.reg.read_hl())
     }
+
+    fn ld_r8_r8(&mut self, left: u8, right: u8) {
+        let right_value = self.decode_r8(right);
+
+        self.encode_r8(left, right_value);
+    }
+
+    fn ld_r8_n8(&mut self, r8: u8, n8: u8) {
+        self.encode_r8(r8, n8);
+    }
+    
+    fn ld_r16_n16(&mut self, r16: u8, n16: u16) {
+        self.encode_r16(r16, n16);
+    }
+
+    fn ld_r16_a(&mut self, r16: u8) {
+        let a = self.reg.read_a();
+        self.encode_r16(r16, a as u16);
+    }
+    
+    fn ld_n16_a(&mut self, n16: u16) {
+        let a = self.reg.read_a();
+        self.memory.write(n16, a);
+    }
+    
 }
 
 #[cfg(test)]
