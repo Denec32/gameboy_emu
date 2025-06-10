@@ -1,7 +1,7 @@
 pub mod registers;
 
 use registers::Registers;
-use crate::memory::Memory;
+use crate::game_boy::memory::Memory;
 
 pub struct CPU {
     reg: Registers,

@@ -1,2 +1,1 @@
-pub mod cpu;
-mod memory;
+pub mod game_boy;
