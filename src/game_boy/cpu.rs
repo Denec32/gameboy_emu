@@ -2,8 +2,22 @@ pub mod registers;
 
 use std::thread;
 use std::time::Duration;
+use regex::Regex;
 use registers::Registers;
 use crate::game_boy::memory::Memory;
+
+trait InstructionMatcher {
+    fn is_match(&self, opcode: u8) -> bool;
+}
+
+impl InstructionMatcher for str {
+    fn is_match(&self, instruction: u8) -> bool {
+        let rx = Regex::new(self).unwrap();
+        let formated_instruction = format!("{:08b}", instruction);
+        
+        rx.is_match(formated_instruction.as_str())
+    }
+}
 
 pub struct CPU {
     reg: Registers,
@@ -18,7 +32,7 @@ impl CPU {
     pub fn default() -> Self {
         CPU{reg: Registers::new(), memory: Memory::new(), instructions: vec![], ime: false, set_ime_after_instruction: false}
     }
-    
+
     pub fn new(instructions: Vec<u8>) -> CPU {
         CPU{reg: Registers::new(), memory: Memory::new(), instructions, ime: false, set_ime_after_instruction: false}
     }
@@ -329,13 +343,40 @@ impl CPU {
         self.memory.write(n16, a);
     }
 
-    pub(crate) fn execute_next_instruction(&mut self) {
+    fn fetch_instruction(&mut self) -> u8 {
         let instruction = self.instructions[self.reg.read_pc() as usize];
-        
+        self.cycle();
+        self.reg.inc_pc();
+
+        instruction
+    }
+
+    fn fetch_n16(&mut self) -> u16 {
+        let higher_nimble = self.fetch_instruction();
+        let lower_nimble = self.fetch_instruction();
+
+        (lower_nimble as u16) << 8 | higher_nimble as u16
+    }
+    
+    fn fetch_n8(&mut self) -> u8 {
+        self.fetch_instruction()
+    }
+
+    fn cycle_times(&self, times: u32) {
+        thread::sleep(Duration::new(0, 1000 * times));
+    }
+
+    fn cycle(&self) {
+        self.cycle_times(1);
+    }
+
+    pub(crate) fn execute_next_instruction(&mut self) {
+        let instruction = self.fetch_instruction();
+
         let block = instruction >> 6;
-        
+
         println!("{:08b}", instruction);
-        
+
         match block {
             0b00 => println!("block 0"),
             0b01 => println!("block 1"),
@@ -343,10 +384,23 @@ impl CPU {
             0b11 => println!("block 3"),
             _ => unreachable!(),
         }
-        
-        self.reg.write_pc(self.reg.read_pc() + 1);
-        
-        thread::sleep(Duration::new(5, 0));
+
+        if "11000011".is_match(instruction) {
+            let n16 = self.fetch_n16();
+            self.jp_n16(n16);
+            self.cycle();
+        } else if "00...110".is_match(instruction) {
+            let n8 = self.fetch_n8();
+            let r8 = (instruction & 0b00111000) >> 3;
+            self.ld_r8_n8(r8, n8);
+            self.cycle();
+        } else if "11101010".is_match(instruction) {
+            let n16 = self.fetch_n16();
+            self.ld_n16_a(n16);
+            self.cycle();
+        } else {
+            panic!("invalid instruction {:08b}", instruction);
+        }
     }
 }
 

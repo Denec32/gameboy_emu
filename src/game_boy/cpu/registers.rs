@@ -57,6 +57,7 @@ impl Registers {
 
     pub(crate) fn write_sp(&mut self, value: u16) { self.sp = value; }
     pub(crate) fn write_pc(&mut self, value: u16) { self.pc = value; }
+    pub(crate) fn inc_pc(&mut self) { self.pc += 1; }
     
     pub(crate) fn read_a(&self) -> u8 { self.a }
     pub(crate) fn read_b(&self) -> u8 { self.b }
