@@ -25,7 +25,7 @@ impl Registers {
     const LOWER_BITS: u16 = 0b00000000_11111111;
 
     pub(crate) fn new() -> Registers {
-        Registers{ a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0, }
+        Registers{ a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0x100, }
     }
 
     fn merge_to_16_bit(first: u8, second: u8) -> u16 {
@@ -71,6 +71,7 @@ impl Registers {
     pub(crate) fn read_bc(&self) -> u16 { Self::merge_to_16_bit(self.b, self.c) }
     pub(crate) fn read_de(&self) -> u16 { Self::merge_to_16_bit(self.d, self.e) }
     pub(crate) fn read_sp(&self) -> u16 { self.sp }
+    pub(crate) fn read_pc(&self) -> u16 { self.pc }
 
     pub(crate) fn read_zero_flag(&self) -> bool { (self.f & Self::ZERO_FLAG_BITS ) != 0 }
     pub(crate) fn read_subtraction_flag(&self) -> bool { (self.f & Self::SUBTRACTION_FLAG_BITS) != 0 }

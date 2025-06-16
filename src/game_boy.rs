@@ -14,7 +14,7 @@ impl GameBoy {
     pub fn new(cartridge_rom: Vec<u8>) -> GameBoy {
         GameBoy{
             memory: Memory::new(),
-            cpu: CPU::new(),
+            cpu: CPU::new(cartridge_rom.clone()),
             cartridge_rom,
         }
     }
@@ -30,6 +30,10 @@ impl GameBoy {
 
         let global_checksum = ((self.cartridge_rom[0x14E] as u16) << 8) + (self.cartridge_rom[0x14F] as u16);
         assert_eq!(global_checksum, Self::calculate_global_checksum(&self.cartridge_rom));
+        
+        loop {
+            self.cpu.execute_next_instruction();
+        }
     }
 
     fn is_nintendo_logo_correct(&self) -> bool {

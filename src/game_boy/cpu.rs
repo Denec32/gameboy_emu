@@ -1,20 +1,26 @@
 pub mod registers;
 
+use std::thread;
+use std::time::Duration;
 use registers::Registers;
 use crate::game_boy::memory::Memory;
 
 pub struct CPU {
     reg: Registers,
     memory: Memory,
-    
+    instructions: Vec<u8>,
+
     ime: bool,
-    
     set_ime_after_instruction: bool,
 }
 
 impl CPU {
-    pub fn new() -> CPU {
-        CPU{reg: Registers::new(), memory: Memory::new(), ime: false, set_ime_after_instruction: false}
+    pub fn default() -> Self {
+        CPU{reg: Registers::new(), memory: Memory::new(), instructions: vec![], ime: false, set_ime_after_instruction: false}
+    }
+    
+    pub fn new(instructions: Vec<u8>) -> CPU {
+        CPU{reg: Registers::new(), memory: Memory::new(), instructions, ime: false, set_ime_after_instruction: false}
     }
 
     fn nop(&mut self) {}
@@ -322,7 +328,26 @@ impl CPU {
         let a = self.reg.read_a();
         self.memory.write(n16, a);
     }
-    
+
+    pub(crate) fn execute_next_instruction(&mut self) {
+        let instruction = self.instructions[self.reg.read_pc() as usize];
+        
+        let block = instruction >> 6;
+        
+        println!("{:08b}", instruction);
+        
+        match block {
+            0b00 => println!("block 0"),
+            0b01 => println!("block 1"),
+            0b10 => println!("block 2"),
+            0b11 => println!("block 3"),
+            _ => unreachable!(),
+        }
+        
+        self.reg.write_pc(self.reg.read_pc() + 1);
+        
+        thread::sleep(Duration::new(5, 0));
+    }
 }
 
 #[cfg(test)]
@@ -330,7 +355,7 @@ mod tests {
     use super::*;
     #[test]
     fn add_negative_to_sp() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         
         cpu.add_sp(-5);
         assert_eq!(-5, cpu.reg.read_sp() as i16);
@@ -338,7 +363,7 @@ mod tests {
     
     #[test]
     fn add_to_sp_overflow() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_sp(u16::MAX);
         cpu.add_sp(1);
         assert_eq!(0, cpu.reg.read_sp());
@@ -348,7 +373,7 @@ mod tests {
     
     #[test]
     fn add_to_sp_set_carry_flag() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_sp(0xFF);
         cpu.add_sp(1);
         assert_eq!(0xFF + 1, cpu.reg.read_sp());
@@ -358,7 +383,7 @@ mod tests {
     
     #[test]
     fn add_from_ram_to_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.memory.write(0x00, 17);
         cpu.adc_a_r8(6);
@@ -372,7 +397,7 @@ mod tests {
 
     #[test]
     fn and_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         let a = 0b1011_1101;
         let v = 0b1011_1110;
         cpu.reg.write_a(a);
@@ -383,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_bit() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_a(0b_0000_0001);
 
         cpu.bit_u3_r8(0, 7);
@@ -395,7 +420,7 @@ mod tests {
     
     #[test]
     fn compare_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_a(0b_0010_1101);
         
         cpu.cp_a(0b_0011_1111);
@@ -417,7 +442,7 @@ mod tests {
     
     #[test]
     fn complement_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_a(0b_1011_1010);
         cpu.cpl();
         
@@ -426,7 +451,7 @@ mod tests {
     
     #[test]
     fn dec_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_a(0b_1011_0000);
         
         cpu.dec_r8(7);
@@ -441,7 +466,7 @@ mod tests {
 
     #[test]
     fn inc_a() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.reg.write_a(0b_1010_1111);
 
         cpu.inc_r8(7);
