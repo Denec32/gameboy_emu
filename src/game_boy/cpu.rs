@@ -340,6 +340,11 @@ impl CPU {
         self.memory.borrow_mut().write(n16, a);
     }
 
+    fn ld_a_n16(&mut self, n16: u16) {
+        let byte_at_address = self.memory.borrow().read(n16);
+        self.reg.write_a(byte_at_address);
+    }
+
     fn fetch_instruction(&mut self) -> u8 {
         let instruction = self.memory.borrow().read(self.reg.read_pc());
         self.cycle();
@@ -395,7 +400,16 @@ impl CPU {
             let n16 = self.fetch_n16();
             self.ld_n16_a(n16);
             self.cycle();
-        } else {
+        } else if "11111010".is_match(instruction) {
+            let n16 = self.fetch_n16();
+            self.ld_a_n16(n16);
+            self.cycle();
+        } else if "11111110".is_match(instruction) {
+            let n8 = self.fetch_n8();
+            self.cp_a(n8);
+            self.cycle();
+        }
+        else {
             panic!("invalid instruction {:08b}", instruction);
         }
     }
@@ -417,7 +431,7 @@ mod tests {
     fn add_to_sp_overflow() {
         let memory = Rc::new(RefCell::new(Memory::new()));
         let mut cpu = CPU::new(memory);
-        
+
         cpu.reg.write_sp(u16::MAX);
         cpu.add_sp(1);
         assert_eq!(0, cpu.reg.read_sp());
