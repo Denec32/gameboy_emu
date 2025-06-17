@@ -20,6 +20,6 @@ fn main() {
     println!("ROM size: 32 KiB * {}", 1 << content[0x148]);
     println!("RAM size: {}", decode_ram_size(content[0x149]));
 
-    let mut game_boy = GameBoy::new(content);
-    game_boy.start();
+    let mut game_boy = GameBoy::new();
+    game_boy.start(content);
 }

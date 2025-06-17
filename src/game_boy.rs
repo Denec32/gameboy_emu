@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use cpu::CPU;
 use memory::Memory;
 
@@ -5,50 +7,55 @@ pub mod cpu;
 mod memory;
 
 pub struct GameBoy {
-    memory: Memory,
+    memory: Rc<RefCell<Memory>>,
     cpu: CPU,
-    cartridge_rom: Vec<u8>,
+}
+
+impl Default for GameBoy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GameBoy {
-    pub fn new(cartridge_rom: Vec<u8>) -> GameBoy {
-        GameBoy{
-            memory: Memory::new(),
-            cpu: CPU::new(cartridge_rom.clone()),
-            cartridge_rom,
-        }
+    pub fn new() -> GameBoy {
+        let memory = Rc::new(RefCell::new(Memory::new()));
+        let cpu = CPU::new(Rc::clone(&memory));
+        GameBoy{ memory, cpu }
     }
 
-    pub fn start(&mut self) {
-        if !self.is_nintendo_logo_correct() {
+    pub fn start(&mut self, cartridge_rom: Vec<u8>) {
+        if !self.is_nintendo_logo_correct(&cartridge_rom) {
             panic!("wrong logo")
         }
-        self.print_nintendo_logo();
+        self.print_nintendo_logo(&cartridge_rom);
 
-        let header_checksum = self.cartridge_rom[0x14D];
-        assert_eq!(header_checksum, Self::calculate_checksum(&self.cartridge_rom));
+        let header_checksum = cartridge_rom[0x14D];
+        assert_eq!(header_checksum, Self::calculate_checksum(&cartridge_rom));
 
-        let global_checksum = ((self.cartridge_rom[0x14E] as u16) << 8) + (self.cartridge_rom[0x14F] as u16);
-        assert_eq!(global_checksum, Self::calculate_global_checksum(&self.cartridge_rom));
+        let global_checksum = ((cartridge_rom[0x14E] as u16) << 8) + (cartridge_rom[0x14F] as u16);
+        assert_eq!(global_checksum, Self::calculate_global_checksum(&cartridge_rom));
+        
+        self.memory.borrow_mut().load_cartridge(cartridge_rom);
         
         loop {
             self.cpu.execute_next_instruction();
         }
     }
 
-    fn is_nintendo_logo_correct(&self) -> bool {
+    fn is_nintendo_logo_correct(&self, cartridge_rom: &Vec<u8>) -> bool {
         const NINTENDO_LOGO: &[u8] = &[
             0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
             0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
             0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
         ];
 
-        let nintendo_logo_content = &self.cartridge_rom[0x104..0x133 + 1];
+        let nintendo_logo_content = &cartridge_rom[0x104..0x133 + 1];
         NINTENDO_LOGO == nintendo_logo_content
     }
 
-    fn print_nintendo_logo(&self) {
-        let nintendo_logo_content = &self.cartridge_rom[0x104..0x133 + 1];
+    fn print_nintendo_logo(&self, cartridge_rom: &Vec<u8>) {
+        let nintendo_logo_content = &cartridge_rom[0x104..0x133 + 1];
         self.print_half(&nintendo_logo_content[0..24]);
         self.print_half(&nintendo_logo_content[24..48]);
     }
