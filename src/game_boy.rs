@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use cpu::CPU;
 use memory::Memory;
 
@@ -7,7 +5,6 @@ pub mod cpu;
 mod memory;
 
 pub struct GameBoy {
-    memory: Rc<RefCell<Memory>>,
     cpu: CPU,
 }
 
@@ -19,9 +16,8 @@ impl Default for GameBoy {
 
 impl GameBoy {
     pub fn new() -> GameBoy {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let cpu = CPU::new(Rc::clone(&memory));
-        GameBoy{ memory, cpu }
+        let mut cpu = CPU::new();
+        GameBoy{ cpu }
     }
 
     pub fn start(&mut self, cartridge_rom: Vec<u8>) {
@@ -36,7 +32,7 @@ impl GameBoy {
         let global_checksum = ((cartridge_rom[0x14E] as u16) << 8) + (cartridge_rom[0x14F] as u16);
         assert_eq!(global_checksum, Self::calculate_global_checksum(&cartridge_rom));
         
-        self.memory.borrow_mut().load_cartridge(cartridge_rom);
+        self.cpu.load_cartridge(cartridge_rom);
         
         loop {
             self.cpu.execute_next_instruction();

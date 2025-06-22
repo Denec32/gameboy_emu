@@ -1,7 +1,5 @@
 pub mod registers;
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 use regex::Regex;
@@ -23,17 +21,21 @@ impl InstructionMatcher for str {
 
 pub struct CPU {
     reg: Registers,
-    memory: Rc<RefCell<Memory>>,
+    memory: Memory,
 
     ime: bool,
     set_ime_after_instruction: bool,
 }
 
 impl CPU {
-    pub fn new(memory: Rc<RefCell<Memory>>) -> CPU {
-        CPU{reg: Registers::new(), memory, ime: false, set_ime_after_instruction: false}
+    pub fn new() -> CPU {
+        CPU{reg: Registers::new(), memory: Memory::new(), ime: false, set_ime_after_instruction: false}
     }
 
+    pub(crate) fn load_cartridge(&mut self, cartridge_rom: Vec<u8>) {
+        self.memory.load_cartridge(cartridge_rom);
+    }
+    
     fn nop(&mut self) {}
 
     fn decode_r8(&self, r8: u8) -> u8 {
@@ -44,7 +46,7 @@ impl CPU {
             3 => self.reg.read_e(),
             4 => self.reg.read_h(),
             5 => self.reg.read_l(),
-            6 => self.memory.borrow().read(self.reg.read_hl()),
+            6 => self.memory.read(self.reg.read_hl()),
             7 => self.reg.read_a(),
             _ => panic!("Invalid register code: {r8}")
         }
@@ -58,7 +60,7 @@ impl CPU {
             3 => self.reg.write_e(value),
             4 => self.reg.write_h(value),
             5 => self.reg.write_l(value),
-            6 => self.memory.borrow_mut().write(self.reg.read_hl(), value),
+            6 => self.memory.write(self.reg.read_hl(), value),
             7 => self.reg.write_a(value),
             _ => panic!("Invalid register code: {r8}")
         }
@@ -337,16 +339,16 @@ impl CPU {
     
     fn ld_n16_a(&mut self, n16: u16) {
         let a = self.reg.read_a();
-        self.memory.borrow_mut().write(n16, a);
+        self.memory.write(n16, a);
     }
 
     fn ld_a_n16(&mut self, n16: u16) {
-        let byte_at_address = self.memory.borrow().read(n16);
+        let byte_at_address = self.memory.read(n16);
         self.reg.write_a(byte_at_address);
     }
 
     fn fetch_instruction(&mut self) -> u8 {
-        let instruction = self.memory.borrow().read(self.reg.read_pc());
+        let instruction = self.memory.read(self.reg.read_pc());
         self.cycle();
         self.reg.inc_pc();
 
@@ -417,17 +419,14 @@ mod tests {
     use super::*;
     #[test]
     fn add_negative_to_sp() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-        
+        let mut cpu = CPU::new();
         cpu.add_sp(-5);
         assert_eq!(-5, cpu.reg.read_sp() as i16);
     }
     
     #[test]
     fn add_to_sp_overflow() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
+        let mut cpu = CPU::new();
 
         cpu.reg.write_sp(u16::MAX);
         cpu.add_sp(1);
@@ -438,9 +437,7 @@ mod tests {
     
     #[test]
     fn add_to_sp_set_carry_flag() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
         cpu.reg.write_sp(0xFF);
         cpu.add_sp(1);
         assert_eq!(0xFF + 1, cpu.reg.read_sp());
@@ -450,14 +447,12 @@ mod tests {
     
     #[test]
     fn add_from_ram_to_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
-        cpu.memory.borrow_mut().write(0x00, 17);
+        let mut cpu = CPU::new();
+        cpu.memory.write(0x00, 17);
         cpu.adc_a_r8(6);
         assert_eq!(cpu.reg.read_a(), 17);
 
-        cpu.memory.borrow_mut().write(0x00, 12);
+        cpu.memory.write(0x00, 12);
         cpu.adc_a_r8(6);
 
         assert_eq!(cpu.reg.read_a(), 29);
@@ -465,8 +460,7 @@ mod tests {
 
     #[test]
     fn and_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
+        let mut cpu = CPU::new();
 
         let a = 0b1011_1101;
         let v = 0b1011_1110;
@@ -478,9 +472,7 @@ mod tests {
 
     #[test]
     fn test_bit() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
         cpu.reg.write_a(0b_0000_0001);
 
         cpu.bit_u3_r8(0, 7);
@@ -492,9 +484,8 @@ mod tests {
     
     #[test]
     fn compare_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
+        
         cpu.reg.write_a(0b_0010_1101);
         
         cpu.cp_a(0b_0011_1111);
@@ -516,9 +507,7 @@ mod tests {
     
     #[test]
     fn complement_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
         cpu.reg.write_a(0b_1011_1010);
         cpu.cpl();
         
@@ -527,9 +516,7 @@ mod tests {
     
     #[test]
     fn dec_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
         cpu.reg.write_a(0b_1011_0000);
         
         cpu.dec_r8(7);
@@ -544,9 +531,8 @@ mod tests {
 
     #[test]
     fn inc_a() {
-        let memory = Rc::new(RefCell::new(Memory::new()));
-        let mut cpu = CPU::new(memory);
-
+        let mut cpu = CPU::new();
+        
         cpu.reg.write_a(0b_1010_1111);
 
         cpu.inc_r8(7);

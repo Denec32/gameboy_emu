@@ -44,8 +44,14 @@ impl Memory {
             0xE000 ..= 0xFDFF => panic!("Echo RAM, prohibited"),
             0xFE00 ..= 0xFE9F => self.object_attribute_memory[(address - 0xFE00) as usize],
             0xFEA0 ..= 0xFEFF => panic!("Not Usable, prohibited"),
-            0xFF00 ..= 0xFF7F => self.input_output_registers[(address - 0xFF00) as usize],
-            0xFF80 ..= 0xFFFE => self.high_ram[(address - 0xFF80) as usize],
+            0xFF00 ..= 0xFF7F => {
+                let local_address = (address - 0xFF00) as usize;
+                self.input_output_registers[local_address]
+            },
+            0xFF80 ..= 0xFFFE => {
+                let local_address = (address - 0xFF80) as usize;
+                self.high_ram[local_address]
+            },
             0xFFFF => self.interrupt_enable_register,
             _ => unreachable!(),
         }
