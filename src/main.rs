@@ -1,11 +1,12 @@
 use std::fs;
+use std::time::Instant;
+use gameboy_emu::game_boy::GameBoy;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::WindowEvent;
-use gameboy_emu::game_boy::GameBoy;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::platform::windows::WindowAttributesExtWindows;
 use winit::window::{Window, WindowId};
+use gameboy_emu::ppu::PPU;
 
 fn decode_ram_size(code: u8) -> String {
     match code { 
@@ -37,11 +38,9 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-                println!("Window {:?} has received the signal to close", window_id);
                 event_loop.exit();
             },
             WindowEvent::RedrawRequested => {
-                println!("{:?} window redraw", window_id);
                 self.window.as_ref().unwrap().request_redraw();
             }
             _ => (),
@@ -50,6 +49,18 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
+    let ppu = PPU::new();
+    
+    loop {
+        let timer = Instant::now();
+        
+        ppu.draw_frame();
+        
+        let duration = timer.elapsed();
+        
+        println!("fps: {:?}", 1000.0 / duration.as_millis() as f32);
+    }
+
     let content = fs::read("hello-world.gb").unwrap();
     
     println!("Cartridge type: {:0x}", content[0x147]);

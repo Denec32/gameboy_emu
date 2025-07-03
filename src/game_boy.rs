@@ -1,6 +1,4 @@
 use cpu::CPU;
-use memory::Memory;
-
 pub mod cpu;
 mod memory;
 
