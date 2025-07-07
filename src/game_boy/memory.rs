@@ -13,8 +13,6 @@ pub(crate) struct Memory {
 
     video_ram: [u8; 8 * 1024],
 
-
-
     external_ram: [u8; 8 * 1024],
     work_ram_00: [u8; 4 * 1024],
     work_ram_01: [u8; 4 * 1024],
@@ -95,7 +93,17 @@ impl Memory {
             0xE000 ..= 0xFDFF => panic!("Echo RAM, prohibited"),
             0xFE00 ..= 0xFE9F => self.object_attribute_memory[(address - 0xFE00) as usize] = value,
             0xFEA0 ..= 0xFEFF => panic!("Not Usable, prohibited"),
-            0xFF00 ..= 0xFF7F => self.input_output_registers[(address - 0xFF00) as usize] = value,
+            0xFF00 ..= 0xFF7F => {
+                if address == 0xFF46 {
+                    if value <= 0xDF {
+                        for idx in 0x00 .. 0x9F {
+                            self.write(0xFE00 + idx, self.read(0x100 * (value as u16) + idx));
+                        }
+                    }
+                } else {
+                    self.input_output_registers[(address - 0xFF00) as usize] = value
+                }
+            },
             0xFF80 ..= 0xFFFE => self.high_ram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupt_enable_register = value,
             _ => unreachable!(),
