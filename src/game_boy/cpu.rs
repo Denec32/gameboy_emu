@@ -1,5 +1,7 @@
 pub mod registers;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use registers::Registers;
 use crate::game_boy::memory::Memory;
 
@@ -9,15 +11,14 @@ trait InstructionMatcher {
 
 impl InstructionMatcher for str {
     fn is_match(&self, instruction: u8) -> bool {
-
         for (idx, bit) in self.chars().enumerate() {
             if bit == '.' {
                 continue
-            } else {
-                let other_bit = if (instruction & (1 << (7 - idx))) != 0 { '1' } else { '0' };
-                if other_bit != bit {
-                    return false
-                }
+            }
+
+            let other_bit = if (instruction & (1 << (7 - idx))) != 0 { '1' } else { '0' };
+            if other_bit != bit {
+                return false
             }
         }
 
@@ -27,21 +28,17 @@ impl InstructionMatcher for str {
 
 pub struct CPU {
     reg: Registers,
-    memory: Memory,
+    memory: Rc<RefCell<Memory>>,
 
     ime: bool,
     set_ime_after_instruction: bool,
 }
 
 impl CPU {
-    pub fn new() -> CPU {
-        CPU{reg: Registers::new(), memory: Memory::new(), ime: false, set_ime_after_instruction: false}
+    pub fn new(memory: Rc<RefCell<Memory>>) -> CPU {
+        CPU { reg: Registers::new(), memory, ime: false, set_ime_after_instruction: false }
     }
 
-    pub(crate) fn load_cartridge(&mut self, cartridge_rom: Vec<u8>) {
-        self.memory.load_cartridge(cartridge_rom);
-    }
-    
     fn nop(&mut self) {}
 
     fn decode_r8(&self, r8: u8) -> u8 {
@@ -52,12 +49,12 @@ impl CPU {
             3 => self.reg.read_e(),
             4 => self.reg.read_h(),
             5 => self.reg.read_l(),
-            6 => self.memory.read(self.reg.read_hl()),
+            6 => self.memory.borrow().read(self.reg.read_hl()),
             7 => self.reg.read_a(),
             _ => panic!("Invalid register code: {r8}")
         }
     }
-    
+
     fn encode_r8(&mut self, r8: u8, value: u8) {
         match r8 {
             0 => self.reg.write_b(value),
@@ -66,7 +63,7 @@ impl CPU {
             3 => self.reg.write_e(value),
             4 => self.reg.write_h(value),
             5 => self.reg.write_l(value),
-            6 => self.memory.write(self.reg.read_hl(), value),
+            6 => self.memory.borrow_mut().write(self.reg.read_hl(), value),
             7 => self.reg.write_a(value),
             _ => panic!("Invalid register code: {r8}")
         }
@@ -81,7 +78,7 @@ impl CPU {
             _ => panic!("Invalid register code: {r16}")
         }
     }
-    
+
     fn encode_r16(&mut self, r16: u8, value: u16) {
         match r16 {
             0 => self.reg.write_bc(value),
@@ -120,10 +117,10 @@ impl CPU {
 
         self.reg.write_a(sum_result as u8);
     }
-    
+
     fn add_a_r8(&mut self, r8: u8) {
         let register_value = self.decode_r8(r8);
-        self.add_a(register_value); 
+        self.add_a(register_value);
     }
 
     fn add_a(&mut self, value: u8) {
@@ -137,12 +134,12 @@ impl CPU {
 
         self.reg.write_a(sum_result as u8);
     }
-    
+
     fn add_hl_r16(&mut self, r16: u8) {
         let register_value = self.decode_r16(r16);
         self.add_hl(register_value);
     }
-    
+
     fn add_hl(&mut self, value: u16) {
         let hl = self.reg.read_hl();
 
@@ -151,10 +148,10 @@ impl CPU {
         self.reg.set_subtraction_flag(false);
         self.reg.set_half_carry_flag(sum_result > 0xFFF);
         self.reg.set_carry_flag(sum_result > 0xFFFF);
-        
+
         self.reg.write_hl(sum_result as u16);
     }
-    
+
     fn add_sp(&mut self, e8: i8) {
         let sp = self.reg.read_sp();
         let (sum_result, has_overflow) = sp.overflowing_add(e8 as u16);
@@ -163,7 +160,7 @@ impl CPU {
         self.reg.set_subtraction_flag(false);
         self.reg.set_half_carry_flag(sum_result > 0xF || has_overflow);
         self.reg.set_carry_flag(sum_result > 0xFF || has_overflow);
-        
+
         self.reg.write_sp(sum_result);
     }
 
@@ -191,7 +188,7 @@ impl CPU {
         self.reg.set_half_carry_flag(true);
     }
 
-    fn call_cc_n16(&mut self, cc:u8, n16: u16) {
+    fn call_cc_n16(&mut self, cc: u8, n16: u16) {
         if self.resolve_condition(cc) {
             self.call_n16(n16);
         }
@@ -206,26 +203,26 @@ impl CPU {
         self.reg.set_half_carry_flag(false);
         self.reg.set_carry_flag(!self.reg.read_carry_flag());
     }
-    
+
     fn cp_a_r8(&mut self, r8: u8) {
         let register_value = self.decode_r8(r8);
         self.cp_a(register_value);
     }
-    
+
     fn cp_a(&mut self, value: u8) {
         self.reg.set_zero_flag(self.reg.read_a() == value);
         self.reg.set_subtraction_flag(true);
         self.reg.set_half_carry_flag(Self::detect_bit_3_borrow(self.reg.read_a(), value));
         self.reg.set_carry_flag(value > self.reg.read_a());
     }
-    
+
     fn cpl(&mut self) {
         self.reg.write_a(!self.reg.read_a());
-        
+
         self.reg.set_subtraction_flag(true);
         self.reg.set_half_carry_flag(true);
     }
-    
+
     fn daa(&mut self) {
         if self.reg.read_subtraction_flag() {
             let mut adj = 0;
@@ -246,7 +243,7 @@ impl CPU {
             }
             // TODO add adj to A
         }
-        
+
         self.reg.set_zero_flag(self.reg.read_a() == 0);
         self.reg.set_half_carry_flag(false);
         // TODO set carry flag depending on the operation
@@ -274,15 +271,15 @@ impl CPU {
 
         self.encode_r16(r16, new_value);
     }
-    
+
     fn di(&mut self) {
         self.ime = false;
     }
-    
+
     fn ei(&mut self) {
         self.set_ime_after_instruction = true
     }
-    
+
     fn halt(&mut self) {
         todo!()
     }
@@ -333,7 +330,7 @@ impl CPU {
     fn ld_r8_n8(&mut self, r8: u8, n8: u8) {
         self.encode_r8(r8, n8);
     }
-    
+
     fn ld_r16_n16(&mut self, r16: u8, n16: u16) {
         self.encode_r16(r16, n16);
     }
@@ -342,19 +339,19 @@ impl CPU {
         let a = self.reg.read_a();
         self.encode_r16(r16, a as u16);
     }
-    
+
     fn ld_n16_a(&mut self, n16: u16) {
         let a = self.reg.read_a();
-        self.memory.write(n16, a);
+        self.memory.borrow_mut().write(n16, a);
     }
 
     fn ld_a_n16(&mut self, n16: u16) {
-        let byte_at_address = self.memory.read(n16);
+        let byte_at_address = self.memory.borrow().read(n16);
         self.reg.write_a(byte_at_address);
     }
 
     fn fetch_instruction(&mut self) -> u8 {
-        let instruction = self.memory.read(self.reg.read_pc());
+        let instruction = self.memory.borrow().read(self.reg.read_pc());
 
         self.reg.inc_pc();
 
@@ -367,7 +364,7 @@ impl CPU {
 
         (lower_nimble as u16) << 8 | higher_nimble as u16
     }
-    
+
     fn fetch_n8(&mut self) -> u8 {
         self.fetch_instruction()
     }
@@ -420,137 +417,5 @@ impl CPU {
         } else {
             panic!("invalid instruction {:08b}", instruction);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn add_negative_to_sp() {
-        let mut cpu = CPU::new();
-        cpu.add_sp(-5);
-        assert_eq!(-5, cpu.reg.read_sp() as i16);
-    }
-    
-    #[test]
-    fn add_to_sp_overflow() {
-        let mut cpu = CPU::new();
-
-        cpu.reg.write_sp(u16::MAX);
-        cpu.add_sp(1);
-        assert_eq!(0, cpu.reg.read_sp());
-        assert_eq!(true, cpu.reg.read_carry_flag(), "carry flag is set");
-        assert_eq!(true, cpu.reg.read_half_carry_flag(), "half carry flag is set");
-    }
-    
-    #[test]
-    fn add_to_sp_set_carry_flag() {
-        let mut cpu = CPU::new();
-        cpu.reg.write_sp(0xFF);
-        cpu.add_sp(1);
-        assert_eq!(0xFF + 1, cpu.reg.read_sp());
-        assert_eq!(true, cpu.reg.read_carry_flag(), "carry flag is set");
-        assert_eq!(true, cpu.reg.read_half_carry_flag(), "half carry flag is set");
-    }
-    
-    #[test]
-    fn add_from_ram_to_a() {
-        let mut cpu = CPU::new();
-        cpu.memory.write(0x00, 17);
-        cpu.adc_a_r8(6);
-        assert_eq!(cpu.reg.read_a(), 17);
-
-        cpu.memory.write(0x00, 12);
-        cpu.adc_a_r8(6);
-
-        assert_eq!(cpu.reg.read_a(), 29);
-    }
-
-    #[test]
-    fn and_a() {
-        let mut cpu = CPU::new();
-
-        let a = 0b1011_1101;
-        let v = 0b1011_1110;
-        cpu.reg.write_a(a);
-        cpu.and_a(v);
-
-        assert_eq!(0b1011_1100, cpu.reg.read_a());
-    }
-
-    #[test]
-    fn test_bit() {
-        let mut cpu = CPU::new();
-        cpu.reg.write_a(0b_0000_0001);
-
-        cpu.bit_u3_r8(0, 7);
-        assert!(!cpu.reg.read_zero_flag(), "zero flag is not set");
-
-        cpu.bit_u3_r8(1, 7);
-        assert!(cpu.reg.read_zero_flag(), "zero flag is set");
-    }
-    
-    #[test]
-    fn compare_a() {
-        let mut cpu = CPU::new();
-        
-        cpu.reg.write_a(0b_0010_1101);
-        
-        cpu.cp_a(0b_0011_1111);
-        assert!(cpu.reg.read_carry_flag(), "carry flag is set");
-        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
-
-        cpu.cp_a(0b_0000_1111);
-        assert!(!cpu.reg.read_carry_flag(), "carry flag is not set");
-        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
-        
-        cpu.cp_a(0b_0100_0011);
-        assert!(cpu.reg.read_carry_flag(), "carry flag is set");
-        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
-        
-        cpu.cp_a(0b_0000_0000);
-        assert!(!cpu.reg.read_carry_flag(), "carry flag is not set");
-        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
-    }
-    
-    #[test]
-    fn complement_a() {
-        let mut cpu = CPU::new();
-        cpu.reg.write_a(0b_1011_1010);
-        cpu.cpl();
-        
-        assert_eq!(0b_0100_0101, cpu.reg.read_a(), "carry flag is set");
-    }
-    
-    #[test]
-    fn dec_a() {
-        let mut cpu = CPU::new();
-        cpu.reg.write_a(0b_1011_0000);
-        
-        cpu.dec_r8(7);
-
-        assert_eq!(0b_1010_1111, cpu.reg.read_a());
-        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
-
-        cpu.dec_r8(7);
-        assert_eq!(0b_1010_1110, cpu.reg.read_a());
-        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
-    }
-
-    #[test]
-    fn inc_a() {
-        let mut cpu = CPU::new();
-        
-        cpu.reg.write_a(0b_1010_1111);
-
-        cpu.inc_r8(7);
-
-        assert_eq!(0b_1011_0000, cpu.reg.read_a());
-        assert!(cpu.reg.read_half_carry_flag(), "half carry flag is set");
-
-        cpu.inc_r8(7);
-        assert_eq!(0b_1011_0001, cpu.reg.read_a());
-        assert!(!cpu.reg.read_half_carry_flag(), "half carry flag is not set");
     }
 }

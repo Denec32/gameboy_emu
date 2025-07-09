@@ -131,4 +131,8 @@ impl Memory {
             _ => self.input_output_registers[(address - 0xFF00) as usize] = value
         }
     }
+
+    pub fn set_ly(&mut self, ly: u8) {
+        self.input_output_registers[0xFF44 - 0xFF00] = ly;
+    }
 }

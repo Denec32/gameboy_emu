@@ -1,17 +1,16 @@
-pub struct PPU {
+use std::cell::RefCell;
+use std::rc::Rc;
+use crate::game_boy::memory::Memory;
+
+pub(crate) struct PPU {
+    memory: Rc<RefCell<Memory>>,
     acc: i32,
     current_scanline: u8
 }
 
-impl Default for PPU {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl PPU {
-    pub fn new() -> PPU {
-        PPU{ acc: 0, current_scanline: 0 }
+    pub fn new(memory: Rc<RefCell<Memory>>) -> PPU {
+        PPU{ memory, acc: 0, current_scanline: 0 }
     }
 
     pub fn step(&mut self, cycles: i32) {
@@ -28,6 +27,7 @@ impl PPU {
             self.mode3();
         }
         self.current_scanline += 1;
+        self.memory.borrow_mut().set_ly(self.current_scanline);
 
         if self.current_scanline == 154 {
             self.draw_frame();
