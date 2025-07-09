@@ -1,9 +1,13 @@
 use cpu::CPU;
+use crate::game_boy::ppu::PPU;
+
 pub mod cpu;
 mod memory;
+pub mod ppu;
 
 pub struct GameBoy {
     cpu: CPU,
+    ppu: PPU
 }
 
 impl Default for GameBoy {
@@ -14,8 +18,9 @@ impl Default for GameBoy {
 
 impl GameBoy {
     pub fn new() -> GameBoy {
-        let mut cpu = CPU::new();
-        GameBoy{ cpu }
+        let cpu = CPU::new();
+        let ppu = PPU::new();
+        GameBoy{ cpu, ppu}
     }
 
     pub fn start(&mut self, cartridge_rom: Vec<u8>) {
@@ -31,10 +36,13 @@ impl GameBoy {
         assert_eq!(global_checksum, Self::calculate_global_checksum(&cartridge_rom));
         
         self.cpu.load_cartridge(cartridge_rom);
-        
+
         loop {
-            self.cpu.execute_next_instruction();
+            let cycles_used = self.cpu.execute_next_instruction();
+
+            self.ppu.step(cycles_used);
         }
+
     }
 
     fn is_nintendo_logo_correct(&self, cartridge_rom: &[u8]) -> bool {

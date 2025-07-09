@@ -1,7 +1,9 @@
+use crate::game_boy::memory::lcdc::Lcdc;
 use crate::game_boy::memory::vram_tile_data::VramTileData;
 
 pub mod object_attribute_memory;
 mod vram_tile_data;
+mod lcdc;
 
 pub(crate) struct Memory {
     rom_bank_00: [u8; 16 * 1024],
@@ -17,7 +19,11 @@ pub(crate) struct Memory {
     work_ram_00: [u8; 4 * 1024],
     work_ram_01: [u8; 4 * 1024],
     object_attribute_memory: [u8; 160],
+
+    lcdc: Lcdc,
     input_output_registers: [u8; 128],
+
+
     high_ram: [u8; 128],
     interrupt_enable_register: u8,
 }
@@ -34,6 +40,7 @@ impl Memory {
             work_ram_00: [0; 4 * 1024],
             work_ram_01: [0; 4 * 1024],
             object_attribute_memory: [0; 160],
+            lcdc: Lcdc::default(),
             input_output_registers: [0; 128],
             high_ram: [0; 128],
             interrupt_enable_register: 0,
@@ -93,20 +100,35 @@ impl Memory {
             0xE000 ..= 0xFDFF => panic!("Echo RAM, prohibited"),
             0xFE00 ..= 0xFE9F => self.object_attribute_memory[(address - 0xFE00) as usize] = value,
             0xFEA0 ..= 0xFEFF => panic!("Not Usable, prohibited"),
-            0xFF00 ..= 0xFF7F => {
-                if address == 0xFF46 {
-                    if value <= 0xDF {
-                        for idx in 0x00 .. 0x9F {
-                            self.write(0xFE00 + idx, self.read(0x100 * (value as u16) + idx));
-                        }
-                    }
-                } else {
-                    self.input_output_registers[(address - 0xFF00) as usize] = value
-                }
-            },
+            0xFF00 ..= 0xFF7F => self.write_to_register(address, value),
             0xFF80 ..= 0xFFFE => self.high_ram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupt_enable_register = value,
-            _ => unreachable!(),
+            _ => {}
         };
+    }
+
+    fn write_to_register(&mut self, address: u16, value: u8) {
+        match address {
+            0xFF40 => {
+                self.lcdc.set_flags(value);
+            }
+            0xFF41 => {
+                // STAT
+            }
+            0xFF44 => {
+                panic!("LY is readonly!")
+            }
+            0xFF45 => {
+                // LY compare
+            }
+            0xFF46 => {
+                if value <= 0xDF {
+                    for idx in 0x00..0x9F {
+                        self.write(0xFE00 + idx, self.read(0x100 * (value as u16) + idx));
+                    }
+                }
+            }
+            _ => self.input_output_registers[(address - 0xFF00) as usize] = value
+        }
     }
 }

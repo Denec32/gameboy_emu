@@ -1,8 +1,5 @@
 pub mod registers;
 
-use std::thread;
-use std::time::Duration;
-use regex::Regex;
 use registers::Registers;
 use crate::game_boy::memory::Memory;
 
@@ -12,10 +9,19 @@ trait InstructionMatcher {
 
 impl InstructionMatcher for str {
     fn is_match(&self, instruction: u8) -> bool {
-        let rx = Regex::new(self).unwrap();
-        let formated_instruction = format!("{:08b}", instruction);
-        
-        rx.is_match(formated_instruction.as_str())
+
+        for (idx, bit) in self.chars().enumerate() {
+            if bit == '.' {
+                continue
+            } else {
+                let other_bit = if (instruction & (1 << (7 - idx))) != 0 { '1' } else { '0' };
+                if other_bit != bit {
+                    return false
+                }
+            }
+        }
+
+        true
     }
 }
 
@@ -349,7 +355,7 @@ impl CPU {
 
     fn fetch_instruction(&mut self) -> u8 {
         let instruction = self.memory.read(self.reg.read_pc());
-        self.cycle();
+
         self.reg.inc_pc();
 
         instruction
@@ -366,48 +372,51 @@ impl CPU {
         self.fetch_instruction()
     }
 
-    fn cycle_times(&self, times: u32) {
-        thread::sleep(Duration::new(0, 1000 * times));
-    }
-
-    fn cycle(&self) {
-        self.cycle_times(1);
-    }
-
-    pub(crate) fn execute_next_instruction(&mut self) {
+    pub(crate) fn execute_next_instruction(&mut self) -> i32 {
         let instruction = self.fetch_instruction();
 
         if "11000011".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.jp_n16(n16);
-            self.cycle();
-            println!("jumping to {:#x}", n16);
+            //println!("jumping to {:#x}", n16);
+
+            4
         } else if "00...110".is_match(instruction) {
             let n8 = self.fetch_n8();
             let r8 = (instruction & 0b00111000) >> 3;
             self.ld_r8_n8(r8, n8);
-            self.cycle();
-            println!("Copy the value n8 ({}) into register r8", n8);
+            //println!("Copy the value n8 ({}) into register r8", n8);
+
+            2
         } else if "11101010".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.ld_n16_a(n16);
-            self.cycle();
-            println!("Copy the value in register A {} into the byte at address n16.", self.reg.read_a());
+            //println!("Copy the value in register A {} into the byte at address n16.", self.reg.read_a());
+
+            4
         } else if "11111010".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.ld_a_n16(n16);
-            self.cycle();
-            println!("Copy the byte at address n16 into register A.");
+
+            //println!("Copy the byte at address n16 into register A.");
+
+            4
         } else if "11111110".is_match(instruction) {
             let n8 = self.fetch_n8();
             self.cp_a(n8);
-            println!("ComPare the value in A with the value n8.");
+            //println!("ComPare the value in A with the value n8.");
+
+            2
         } else if "110..010".is_match(instruction) {
             if self.resolve_condition((instruction & 0b00011000) >> 3) {
                 let n16 = self.fetch_n16();
                 self.jp_n16(n16);
-                println!("jump to n16 {:#x}", n16);
+                //println!("jump to n16 {:#x}", n16);
+
+                return 4
             }
+
+            1
         } else {
             panic!("invalid instruction {:08b}", instruction);
         }
