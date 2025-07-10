@@ -321,10 +321,10 @@ impl CPU {
         self.reg.write_pc(self.reg.read_hl())
     }
 
-    fn ld_r8_r8(&mut self, left: u8, right: u8) {
-        let right_value = self.decode_r8(right);
+    fn ld_r8_r8(&mut self, dest: u8, source: u8) {
+        let right_value = self.decode_r8(source);
 
-        self.encode_r8(left, right_value);
+        self.encode_r8(dest, right_value);
     }
 
     fn ld_r8_n8(&mut self, r8: u8, n8: u8) {
@@ -371,44 +371,85 @@ impl CPU {
 
     pub(crate) fn execute_next_instruction(&mut self) -> i32 {
         let instruction = self.fetch_instruction();
+        if "01110110".is_match(instruction) {
+            // halt
+            print!("halt");
+            0
+        } else if "01......".is_match(instruction) {
+            let r8_dest = (instruction & 0b00111000) >> 3;
+            let r8_src = instruction & 0b00000111;
+            self.ld_r8_r8(r8_dest, r8_src);
+            println!("ld r8 r8");
 
-        if "11000011".is_match(instruction) {
+            2
+        } else if "00..0101".is_match(instruction) {
+            let operand_r8 = instruction & 0b00110000;
+            self.dec_r8(operand_r8);
+            println!("dec r8");
+
+            1
+        } else if "101100..".is_match(instruction) {
+            let operand_r8 = instruction & 0b00000011;
+
+            self.cp_a_r8(operand_r8);
+            println!("cp a r8");
+            1
+        } else if "00..0001".is_match(instruction) {
+            let n16 = self.fetch_n16();
+            let r16 = (instruction & 0b00110000) >> 4;
+            self.ld_r16_n16(r16, n16);
+            println!("ld r16 n16");
+
+            3
+        } else if "00..1010".is_match(instruction) {
+            let n16 = self.fetch_n16();
+            self.ld_a_n16(n16);
+            println!("ld a n16");
+
+            4
+        } else if "00..1011".is_match(instruction) {
+            let r16 = (instruction & 0b00110000) >> 4;
+            self.dec_r16(r16);
+            println!("dec r16");
+
+            2
+        } else if "11000011".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.jp_n16(n16);
-            //println!("jumping to {:#x}", n16);
+            println!("jumping to {:#x}", n16);
 
             4
         } else if "00...110".is_match(instruction) {
             let n8 = self.fetch_n8();
             let r8 = (instruction & 0b00111000) >> 3;
             self.ld_r8_n8(r8, n8);
-            //println!("Copy the value n8 ({}) into register r8", n8);
+            println!("Copy the value n8 ({}) into register r8", n8);
 
             2
         } else if "11101010".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.ld_n16_a(n16);
-            //println!("Copy the value in register A {} into the byte at address n16.", self.reg.read_a());
+            println!("Copy the value in register A {} into the byte at address n16.", self.reg.read_a());
 
             4
         } else if "11111010".is_match(instruction) {
             let n16 = self.fetch_n16();
             self.ld_a_n16(n16);
 
-            //println!("Copy the byte at address n16 into register A.");
+            println!("Copy the byte at address n16 into register A.");
 
             4
         } else if "11111110".is_match(instruction) {
             let n8 = self.fetch_n8();
             self.cp_a(n8);
-            //println!("ComPare the value in A with the value n8.");
+            println!("ComPare the value in A with the value n8.");
 
             2
         } else if "110..010".is_match(instruction) {
             if self.resolve_condition((instruction & 0b00011000) >> 3) {
                 let n16 = self.fetch_n16();
                 self.jp_n16(n16);
-                //println!("jump to n16 {:#x}", n16);
+                println!("jump to n16 {:#x}", n16);
 
                 return 4
             }
@@ -417,5 +458,6 @@ impl CPU {
         } else {
             panic!("invalid instruction {:08b}", instruction);
         }
+
     }
 }
